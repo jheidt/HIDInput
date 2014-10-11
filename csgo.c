@@ -15,11 +15,11 @@
 
 #include "input.h"
 
-#define RVA_BASE_ENTITY 0xA58734
-#define RVA_ENT_LIST 0x49FA8F4
+#define RVA_BASE_ENTITY 0xA5D7C4
+#define RVA_ENT_LIST 0x49FFA64
 #define ENT_LIST_STRIDE 0x10
 
-#define OFF_IN_CROSS 0x23D8
+#define OFF_IN_CROSS 0x23DC
 #define OFF_TEAM_NUM 0xF0
 
 typedef unsigned long uint32_t;
