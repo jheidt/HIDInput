@@ -101,7 +101,7 @@ void main_loop()
 	if(cdll_base == 0 || GetKeyState(VK_P)) {
 		ULONGLONG temp_base;
 		AttachToProcess("csgo.exe");
-		GetModuleBase(L"client.dll", &temp_base);return;
+		GetModuleBase(L"client.dll", &temp_base);
 		cdll_base = (uint32_t)(temp_base);
 	}
 	
