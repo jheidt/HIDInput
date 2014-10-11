@@ -1,277 +1,130 @@
  /*
- This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "input.h"
 
-//////////////////////////////////
-//                               //
-//        FUNCTION LIST          //
-//                               //
-///////////////////////////////////                             
+#define RVA_BASE_ENTITY 0xA58734
+#define RVA_ENT_LIST 0x49FA8F4
+#define ENT_LIST_STRIDE 0x10
+
+#define OFF_IN_CROSS 0x23D8
+#define OFF_TEAM_NUM 0xF0
+
+typedef unsigned long uint32_t;
+typedef unsigned char BOOL;
+
+uint32_t cdll_base = 0;
 
 /*
-Sleep(int milliseconds) - Just like usermode, takes this thread off the processor for the specified duration.
-
-AttachToProcess(char *imageName) - Attaches to the specified process. The image name is just the binary, not a fully qualified image path.
-
-GetModuleBase(wchar_t *moduleName, ULONGLONG *base) - obtains the linear base address for the specified module name. You must have previously and
-successfully called AttachToProcess() or this function will fail.
-
-ReadMemory(void *source, void *target, ULONGLONG size) - Speaks for itself I hope. You must have previously and successfully called AttachToProcess() 
-or this function will fail.
-
-SynthesizeMouse(PMOUSE_INPUT_DATA a1) - Synthesizes the corresponding mouse input.
-
-SynthesizeKeyboard(PMOUSE_INPUT_DATA a1) - Synthesizes the corresponding keyboard input.
-
-GetKeyState(char scan) - Asynchronously retrieves the up or down state of the specified can code.
-
-GetMouseState(int key) - Asynchronously retrieves the up or down state of the specified mouse button.
-
-0 - Left mouse
-1 - Right mouse
-2 - Middle button
-3 - Mouse button 4
-4 - Mouse button 5
-
-
-*/
-
-
-
-
-#define BaseEntity 0xA58734
-#define EntityList 0x49fa8f4
-#define EntityListDistance 0x10
-
-#define inCross 0x23d8
-#define iTeamNum 0xF0
-
-#define iTeamNum 0xF0
-typedef ULONGLONG QWORD;
-
-
-
-//
-//
-//
-QWORD GetLocalPlayer(QWORD clientDllBase){
-
-	QWORD localPlayer = NULL;
-
-	QWORD ptr = (QWORD) ((clientDllBase) + BaseEntity);
-
-	ReadMemory((void*)ptr,&localPlayer,4);
-
-	return localPlayer;
+ * Returns a pointer to the local player entity
+ */
+uint32_t get_local()
+{
+	uint32_t out;
+	ReadMemory((void*)(cdll_base + RVA_BASE_ENTITY), &out, sizeof(out));
+	
+	return out;
 }
 
-
-//
-//
-//
-int GetPlayers(QWORD *players, QWORD clientDllBase){
-
-	int x = 0;
-
-	for(x = 0; x < 64; x ++){
-
-		QWORD tempPlayerAddress = 0;
-
-		QWORD ptr = (QWORD) (clientDllBase + EntityList + (x * EntityListDistance));
-
-		if(!ReadMemory((void*)ptr,&tempPlayerAddress,4)){
-
-			players[x] = tempPlayerAddress;
-
-		}else{
-			//ERROR: Cannot read Player
-			return TRUE;
-		}
-	}  
-	return FALSE;
-}
-
-//
-//
-//
-QWORD GetInCrossId(QWORD localPlayer){
-
-	QWORD ptr = (QWORD) ((QWORD) localPlayer + inCross);
-
-	QWORD inCrossId = NULL;
-
-	if(!ReadMemory((void*)ptr,&inCrossId,4))
-	{
-
-		return inCrossId;
-
-	}
-	else
-	{
-		//ERROR: Cannot read InCrossId from
-		return NULL;
+/*
+ * Fill players with an array of 64 player entity pointers
+ */
+uint32_t get_players(uint32_t players[])
+{
+	int i;
+	for(i = 0; i < 64; i++) {
+		uint32_t out;
+		uint32_t addr = cdll_base + RVA_ENT_LIST + i * ENT_LIST_STRIDE;
+		ReadMemory((void*)(addr), &players[i], sizeof(players[i]));
 	}
 }
 
-//
-//
-//
-int NotOnTeam(QWORD player, QWORD localPlayer){
+/*
+ * Get the ID of the entity under the crosshair
+ */
+int get_in_cross_id(uint32_t local)
+{
+	int result;
+	ReadMemory((void*)(local + OFF_IN_CROSS), &result, sizeof(result));
+	
+	return result;
+}
 
-	QWORD playerTeamID = 0;
-	QWORD localPlayerTeamID = 0;
+/*
+ * Return whether ent1 and ent2 are on different teams
+ */
+BOOL not_on_team(uint32_t ent1, uint32_t ent2)
+{
+	int team1, team2;
+	ReadMemory((void*)(ent1 + OFF_TEAM_NUM), &team1, sizeof(team1));
+	ReadMemory((void*)(ent2 + OFF_TEAM_NUM), &team2, sizeof(team2));
+	
+	return team1 != team2;
+}
 
-	QWORD pPlayer = (QWORD) ((QWORD) player + iTeamNum);
-	QWORD pLocalPlayer = (QWORD) ((QWORD) localPlayer + iTeamNum);
+/*
+ * Synthesize a mouse click
+ */
+void mouse_click()
+{
+	mdata.ButtonFlags |= MOUSE_LEFT_BUTTON_DOWN;
+	SynthesizeMouse(&mdata);
+	
+	Sleep(50);
+	
+	mdata.ButtonFlags &= ~MOUSE_LEFT_BUTTON_DOWN;
+	mdata.ButtonFlags |= MOUSE_LEFT_BUTTON_UP;
+	SynthesizeMouse(&mdata);
+}
 
-	if(!ReadMemory((void*)pPlayer,&playerTeamID,4)){
+#define VK_P 25
 
-		if(!ReadMemory((void*)pLocalPlayer,&localPlayerTeamID,4)){
-
-			if(playerTeamID == localPlayerTeamID)
-				return FALSE;
-			else 
-				return TRUE;
-
-		}else{
-			//ERROR: Cannot read team for localPlayer
-			return FALSE;
-		}   
-	}else{
-		//ERROR: Cannot read team for player
-		return TRUE;
+void main_loop()
+{
+	uint32_t local, players[64];
+	int in_cross_id;
+	
+	if(cdll_base == 0 || GetKeyState(VK_P)) {
+		ULONGLONG temp_base;
+		AttachToProcess("csgo.exe");
+		GetModuleBase(L"client.dll", &temp_base);return;
+		cdll_base = (uint32_t)(temp_base);
+	}
+	
+	if(cdll_base == 0)
+		return;
+	
+	local = get_local();
+	get_players(players);
+	in_cross_id = get_in_cross_id(local);
+	
+	if(in_cross_id >= 1 && in_cross_id <= 64) {
+		if(not_on_team(players[in_cross_id - 1], local))
+			mouse_click();
 	}
 }
 
-
+/*
+ * Main thread called from input.h
+ */
 NTSTATUS SystemRoutine()
 {
-
-	//YOUR WORK HERE:
+	BOOL reacq_key_held = FALSE;
 	
-	
-	ULONGLONG base;
-	ULONG trigger;
-	int active=1;
-	ULONGLONG page=0;
-	
-	
-	mdata.Flags|=MOUSE_MOVE_RELATIVE; 
-
-
-
-	//Use these scan codes for GetKeyState()
-	//
-	//http://msdn.microsoft.com/en-us/library/aa299374%28v=vs.60%29.aspx
-
-
-	
-
-
-	
-	
-
-	while(TRUE)
-	{
-		
-
-
-#define __P 25//reacquire
-		#define  __V 47
-
-		if(GetKeyState(25))
-		{
-			
-
-			AttachToProcess("csgo.exe");
-
-			GetModuleBase(L"client.dll",&base);
-		}
-
-
-
-		if(active)
-		{
-
-			
-
-
-
-		//if activated
-		
-			//===============================================================
-			//
-			QWORD localPlayer = 0;
-
-			QWORD players[64] = {0};
-
-			QWORD clientBase = (QWORD)base;
-
-			QWORD inCrossId = 0;
-
-			//===============================================================
-			//
-
-			//Get local player address
-			localPlayer = GetLocalPlayer((QWORD)clientBase);		
-
-			//Get player array
-			GetPlayers(&players, (QWORD)clientBase);
-
-			//Get id of player that is in cross, if any
-			inCrossId = GetInCrossId(localPlayer);
-
-			//===============================================================
-			//
-
-			//Check for valid player index
-			if(inCrossId >= 1 && inCrossId <= 64 ){
-
-				//Check to see if they are on the same team
-				if(NotOnTeam(players[inCrossId - 1], localPlayer)){
-
-					mdata.ButtonFlags|=MOUSE_LEFT_BUTTON_DOWN;
-
-					//send the input
-					SynthesizeMouse(&mdata);
-
-					//lets wait 1/10 seconds and send the release
-
-					Sleep(50);
-
-					//remove button down flag
-					mdata.ButtonFlags&=~MOUSE_LEFT_BUTTON_DOWN;
-
-					//send the button up
-					mdata.ButtonFlags|=MOUSE_LEFT_BUTTON_UP;
-
-					SynthesizeMouse(&mdata);
-
-				}
-			}  
-		}
-
-		//we should sleep here for a bit so this thread isn't using a lot of cpu time. same as user-mode.
-
+	while(TRUE) {
+		main_loop();
 		Sleep(5);
-
-
 	}
-
-
-	return STATUS_SUCCESS;
 }
