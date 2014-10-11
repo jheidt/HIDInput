@@ -91,6 +91,9 @@ void mouse_click()
 
 #define VK_P 25
 
+/*
+ * Called every 5ms
+ */
 void main_loop()
 {
 	uint32_t local, players[64];
