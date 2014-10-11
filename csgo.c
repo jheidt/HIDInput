@@ -123,8 +123,6 @@ void main_loop()
  */
 NTSTATUS SystemRoutine()
 {
-	BOOL reacq_key_held = FALSE;
-	
 	while(TRUE) {
 		main_loop();
 		Sleep(5);
