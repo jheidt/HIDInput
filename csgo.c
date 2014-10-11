@@ -100,14 +100,14 @@ void main_loop()
 	
 	if(cdll_base == 0 || GetKeyState(VK_P)) {
 		ULONGLONG temp_base;
-		AttachToProcess("csgo.exe");
+		
+		if(AttachToProcess("csgo.exe") != STATUS_SUCCESS)
+			return;
+			
 		GetModuleBase(L"client.dll", &temp_base);
 		cdll_base = (uint32_t)(temp_base);
 	}
-	
-	if(cdll_base == 0)
-		return;
-	
+
 	local = get_local();
 	get_players(players);
 	in_cross_id = get_in_cross_id(local);
