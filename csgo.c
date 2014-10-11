@@ -45,7 +45,6 @@ uint32_t get_players(uint32_t players[])
 {
 	int i;
 	for(i = 0; i < 64; i++) {
-		uint32_t out;
 		uint32_t addr = cdll_base + RVA_ENT_LIST + i * ENT_LIST_STRIDE;
 		ReadMemory((void*)(addr), &players[i], sizeof(players[i]));
 	}
