@@ -15,7 +15,7 @@
 
 #include "input.h"
 
-#define RVA_BASE_ENTITY 0xA5D7C4
+#define ddRVA_BASE_ENTITY 0xA5D7C4
 #define RVA_ENT_LIST 0x49FFA64
 #define ENT_LIST_STRIDE 0x10
 
